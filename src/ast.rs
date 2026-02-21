@@ -13,7 +13,13 @@ impl Program {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Let { name: String, expr: Expr, span: Span },
+    Let {
+        name: String,
+        name_span: Span,
+        mutable: bool,
+        expr: Expr,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +37,14 @@ impl Expr {
             Expr::Int(_, s) => s.clone(),
             Expr::Var(_, s) => s.clone(),
             Expr::List(_, s) => s.clone(),
+        }
+    }
+}
+
+impl Stmt {
+    pub fn span(&self) -> Span {
+        match self {
+            Stmt::Let { span, .. } => span.clone(),
         }
     }
 }
