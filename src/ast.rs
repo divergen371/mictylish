@@ -28,6 +28,12 @@ pub enum Expr {
     Int(i64, Span),
     Var(String, Span),
     List(Vec<Expr>, Span),
+    Fn {
+        param: String,
+        param_span: Span,
+        body: Box<Expr>,
+        span: Span,
+    },
     /// Left-associative pipeline: `a |> b |> c` is `((a |> b) |> c)`.
     Pipe(Box<Expr>, Box<Expr>, Span),
 }
@@ -39,6 +45,7 @@ impl Expr {
             Expr::Int(_, s) => s.clone(),
             Expr::Var(_, s) => s.clone(),
             Expr::List(_, s) => s.clone(),
+            Expr::Fn { span, .. } => *span,
             Expr::Pipe(_, _, s) => s.clone(),
         }
     }

@@ -18,8 +18,10 @@
 - `glob(...)` を明示 API として実装
 - 手書きパーサ雛形（`token` / `lexer` / `parser`）を追加
   - `let` / `let mut` と `let name = expr` のパース
-  - 基本式: `int` / `string` / `ident` / `list`
-  - `|>` は左結合でパースし、`Expr::Pipe` として AST 化（評価は未接続）
+  - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end`
+  - `|>` は左結合でパースし、`Expr::Pipe` として AST 化
+  - 評価器（`eval`）: リテラル・`let` 束縛・リスト・`fn`。`|>` は右辺識別子を関数として適用（`identity` / `id` は組み込み）
+- REPL でパース → `Resolver` → `eval` の順（成功時は `name = value` を表示）
 
 ## プロジェクト構成
 - `src/main.rs`: アプリ起動（非同期 REPL）
@@ -28,6 +30,7 @@
 - `src/lexer.rs`: 手書き Lexer
 - `src/parser.rs`: 手書き Parser（雛形）
 - `src/resolver.rs`: シャドウイング禁止の名前解決
+- `src/eval.rs`: 式・`let` の評価（最小）
 - `src/command.rs`: 外部コマンド仕様
 - `src/runtime.rs`: 実行ブリッジ
 - `src/builtin.rs`: 組み込み関数（例: glob）
@@ -43,8 +46,8 @@ cargo run
 ```
 
 ## 直近タスク
-- T05: Resolver と Parser を統合して検証を強化
 - T06 以降: `match` / `with` / `io` など制御構文の MVP
+- 関数呼び出し構文（`f(x)`）と `|>` 右辺式の一般化
 
 ## 設計ドキュメント
 - `docs/要件定義書.md`

@@ -75,7 +75,8 @@ impl Parser {
             TokenKind::String(v) => Ok(Expr::String(v, token.span)),
             TokenKind::Ident(name) => Ok(Expr::Var(name, token.span)),
             TokenKind::LBracket => self.parse_list(token.span),
-            TokenKind::Fn | TokenKind::Match | TokenKind::With | TokenKind::Io => {
+            TokenKind::Fn => self.parse_fn_expr(token.span),
+            TokenKind::Match | TokenKind::With | TokenKind::Io => {
                 Err(ParseError::new("expected expression, found reserved keyword", token.span))
             }
             _ => Err(ParseError::new(
@@ -83,6 +84,19 @@ impl Parser {
                 token.span,
             )),
         }
+    }
+
+    fn parse_fn_expr(&mut self, fn_span: miette::SourceSpan) -> Result<Expr, ParseError> {
+        let (param, param_span) = self.expect_ident()?;
+        self.expect(TokenKind::Arrow, "'->' after function parameter")?;
+        let body = self.parse_expr()?;
+        let end = self.expect(TokenKind::End, "`end` to close function")?;
+        Ok(Expr::Fn {
+            param,
+            param_span,
+            body: Box::new(body),
+            span: covering(&fn_span, &end.span),
+        })
     }
 
     fn parse_list(&mut self, start_span: miette::SourceSpan) -> Result<Expr, ParseError> {

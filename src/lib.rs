@@ -2,6 +2,7 @@ pub mod ast;
 pub mod builtin;
 pub mod command;
 pub mod error;
+pub mod eval;
 pub mod lexer;
 pub mod parser;
 pub mod repl;

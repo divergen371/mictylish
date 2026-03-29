@@ -29,3 +29,72 @@ impl ParseError {
         }
     }
 }
+
+#[derive(Debug, Error, Diagnostic, Clone)]
+#[error("name '{name}' is not defined")]
+#[diagnostic(code(mictylish::undefined_name))]
+pub struct UndefinedNameError {
+    pub name: String,
+    #[label("used here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic, Clone)]
+#[error("pipeline right-hand side must be an identifier")]
+#[diagnostic(code(mictylish::invalid_pipe_rhs))]
+pub struct InvalidPipeRhsError {
+    #[label("here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum ResolveError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Shadowing(#[from] NameError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Undefined(#[from] UndefinedNameError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidPipeRhs(#[from] InvalidPipeRhsError),
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("name '{name}' has no value in this environment")]
+#[diagnostic(code(mictylish::eval_unbound))]
+pub struct EvalUnboundError {
+    pub name: String,
+    #[label("here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("pipeline target '{name}' is not callable")]
+#[diagnostic(code(mictylish::eval_pipe_callable))]
+pub struct EvalPipeNotCallableError {
+    pub name: String,
+    #[label("here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("pipeline right-hand side must be an identifier")]
+#[diagnostic(code(mictylish::eval_invalid_pipe_rhs))]
+pub struct EvalInvalidPipeRhsError {
+    #[label("here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum EvalError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Unbound(#[from] EvalUnboundError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    PipeNotCallable(#[from] EvalPipeNotCallableError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    InvalidPipeRhs(#[from] EvalInvalidPipeRhsError),
+}

@@ -152,3 +152,38 @@ fn reports_missing_rhs_after_pipe() {
     let err = parse_program("let x = a |>").expect_err("should fail");
     assert!(err.message.contains("expected expression"));
 }
+
+#[test]
+fn parses_fn_expression_in_let() {
+    let source = "let id = fn x -> x end";
+    let program = parse_program(source).expect("parse should succeed");
+    match &program.stmts[0] {
+        Stmt::Let {
+            expr,
+            span: stmt_span,
+            ..
+        } => {
+            assert_eq!(stmt_span, &span(0, source.len()));
+            match expr {
+                Expr::Fn {
+                    param,
+                    param_span,
+                    body,
+                    span: fn_span,
+                } => {
+                    assert_eq!(param, "x");
+                    assert_eq!(param_span, &span(12, 1));
+                    assert_eq!(fn_span, &span(9, 13));
+                    assert!(matches!(&**body, Expr::Var(name, s) if name == "x" && *s == span(17, 1)));
+                }
+                other => panic!("expected Fn, got {other:?}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn reports_missing_end_in_fn_expression() {
+    let err = parse_program("let f = fn x -> x").expect_err("should fail");
+    assert!(err.message.contains("`end` to close function"));
+}
