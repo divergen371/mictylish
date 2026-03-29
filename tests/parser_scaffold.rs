@@ -89,11 +89,66 @@ fn reports_missing_expression_in_let() {
 }
 
 #[test]
-fn rejects_pipe_until_t04() {
-    let err = parse_program("let x = source |> sink").expect_err("pipe not ready in T03");
-    assert!(
-        err.message.contains("T04"),
-        "actual message: {}",
-        err.message
-    );
+fn parses_simple_pipe_in_let() {
+    let source = "let x = source |> sink";
+    let program = parse_program(source).expect("parse should succeed");
+    match &program.stmts[0] {
+        Stmt::Let { expr, .. } => match expr {
+            Expr::Pipe(lhs, rhs, pipe_span) => {
+                assert!(matches!(**lhs, Expr::Var(ref n, _) if n == "source"));
+                assert!(matches!(**rhs, Expr::Var(ref n, _) if n == "sink"));
+                assert_eq!(pipe_span, &span(8, source.len() - 8));
+            }
+            other => panic!("expected Pipe, got {other:?}"),
+        },
+    }
+}
+
+#[test]
+fn pipe_is_left_associative() {
+    let source = "let x = a |> b |> c";
+    let program = parse_program(source).expect("parse should succeed");
+    match &program.stmts[0] {
+        Stmt::Let { expr, .. } => match expr {
+            Expr::Pipe(outer_lhs, outer_rhs, _) => {
+                assert!(matches!(**outer_rhs, Expr::Var(ref n, _) if n == "c"));
+                match &**outer_lhs {
+                    Expr::Pipe(inner_lhs, inner_rhs, _) => {
+                        assert!(matches!(**inner_lhs, Expr::Var(ref n, _) if n == "a"));
+                        assert!(matches!(**inner_rhs, Expr::Var(ref n, _) if n == "b"));
+                    }
+                    other => panic!("expected nested Pipe, got {other:?}"),
+                }
+            }
+            other => panic!("expected Pipe, got {other:?}"),
+        },
+    }
+}
+
+#[test]
+fn pipe_inside_list_item_binds_before_comma() {
+    let source = "let xs = [1, 2 |> id]";
+    let program = parse_program(source).expect("parse should succeed");
+    match &program.stmts[0] {
+        Stmt::Let { expr, .. } => match expr {
+            Expr::List(items, _) => {
+                assert_eq!(items.len(), 2);
+                assert!(matches!(items[0], Expr::Int(1, _)));
+                match &items[1] {
+                    Expr::Pipe(lhs, rhs, _) => {
+                        assert!(matches!(**lhs, Expr::Int(2, _)));
+                        assert!(matches!(**rhs, Expr::Var(ref n, _) if n == "id"));
+                    }
+                    other => panic!("expected Pipe in list, got {other:?}"),
+                }
+            }
+            other => panic!("expected List, got {other:?}"),
+        },
+    }
+}
+
+#[test]
+fn reports_missing_rhs_after_pipe() {
+    let err = parse_program("let x = a |>").expect_err("should fail");
+    assert!(err.message.contains("expected expression"));
 }

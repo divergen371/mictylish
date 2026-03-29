@@ -58,14 +58,14 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
-        let expr = self.parse_primary()?;
-        if self.matches(&TokenKind::PipeGreater) {
-            return Err(ParseError::new(
-                "pipe operator '|>' is not available yet (planned for T04)",
-                self.peek().span.clone(),
-            ));
+        let mut lhs = self.parse_primary()?;
+        while self.matches(&TokenKind::PipeGreater) {
+            self.bump();
+            let rhs = self.parse_primary()?;
+            let span = covering(&lhs.span(), &rhs.span());
+            lhs = Expr::Pipe(Box::new(lhs), Box::new(rhs), span);
         }
-        Ok(expr)
+        Ok(lhs)
     }
 
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {

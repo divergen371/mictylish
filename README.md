@@ -17,9 +17,9 @@
 - 安全な外部コマンド実行モデル（program + args）を実装
 - `glob(...)` を明示 API として実装
 - 手書きパーサ雛形（`token` / `lexer` / `parser`）を追加
-  - `let name = expr` の最小パース
+  - `let` / `let mut` と `let name = expr` のパース
   - 基本式: `int` / `string` / `ident` / `list`
-  - `|>` は T04 で実装予定（現時点は明示エラー）
+  - `|>` は左結合でパースし、`Expr::Pipe` として AST 化（評価は未接続）
 
 ## プロジェクト構成
 - `src/main.rs`: アプリ起動（非同期 REPL）
@@ -43,9 +43,8 @@ cargo run
 ```
 
 ## 直近タスク
-- T03: `let` 文の構文解析と AST 生成を拡張（span 精度と構文エラーケース強化）
-- T04: `|>` の優先順位・結合規則を実装
 - T05: Resolver と Parser を統合して検証を強化
+- T06 以降: `match` / `with` / `io` など制御構文の MVP
 
 ## 設計ドキュメント
 - `docs/要件定義書.md`
