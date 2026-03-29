@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{Expr, Program, Stmt};
+use crate::ast::{Expr, MatchArm, Pattern, Program, Stmt, WithBinding};
 use crate::error::{InvalidPipeRhsError, NameError, ResolveError, UndefinedNameError};
 use crate::span::Span;
 
@@ -115,12 +115,73 @@ impl Resolver {
                 body,
                 ..
             } => self.check_fn_expr(param, *param_span, body),
+            Expr::Match { subject, arms, .. } => {
+                self.check_expr(subject)?;
+                for arm in arms {
+                    self.check_match_arm(arm)?;
+                }
+                Ok(())
+            }
+            Expr::With {
+                bindings,
+                body,
+                else_body,
+                ..
+            } => self.check_with_expr(bindings, body, else_body),
             Expr::Pipe(lhs, rhs, _) => {
                 self.check_expr(lhs)?;
                 self.check_pipe_rhs(rhs)?;
                 Ok(())
             }
         }
+    }
+
+    fn check_match_arm(&mut self, arm: &MatchArm) -> Result<(), ResolveError> {
+        self.push_scope();
+        let result = (|| -> Result<(), ResolveError> {
+            self.define_pattern_bindings(&arm.pattern)?;
+            self.check_expr(&arm.body)?;
+            Ok(())
+        })();
+        self.pop_scope();
+        result
+    }
+
+    fn define_pattern_bindings(&mut self, pat: &Pattern) -> Result<(), ResolveError> {
+        match pat {
+            Pattern::Wildcard(_) | Pattern::Int(_, _) | Pattern::String(_, _) => Ok(()),
+            Pattern::Var(name, span) => {
+                self.define(name.clone(), *span)?;
+                Ok(())
+            }
+            Pattern::List(items, _) => {
+                for item in items {
+                    self.define_pattern_bindings(item)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn check_with_expr(
+        &mut self,
+        bindings: &[WithBinding],
+        body: &Expr,
+        else_body: &Expr,
+    ) -> Result<(), ResolveError> {
+        self.push_scope();
+        let result = (|| -> Result<(), ResolveError> {
+            for wb in bindings {
+                self.check_expr(&wb.expr)?;
+                self.define_pattern_bindings(&wb.pattern)?;
+            }
+            self.check_expr(body)?;
+            Ok(())
+        })();
+        self.pop_scope();
+        result?;
+        self.check_expr(else_body)?;
+        Ok(())
     }
 
     fn resolve_stmt(&mut self, stmt: &Stmt) -> Result<(), ResolveError> {

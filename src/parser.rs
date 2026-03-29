@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Program, Stmt};
+use crate::ast::{Expr, MatchArm, Pattern, Program, Stmt, WithBinding};
 use crate::error::ParseError;
 use crate::lexer::lex;
 use crate::span::covering;
@@ -76,7 +76,9 @@ impl Parser {
             TokenKind::Ident(name) => Ok(Expr::Var(name, token.span)),
             TokenKind::LBracket => self.parse_list(token.span),
             TokenKind::Fn => self.parse_fn_expr(token.span),
-            TokenKind::Match | TokenKind::With | TokenKind::Io => {
+            TokenKind::Match => self.parse_match_expr(token.span),
+            TokenKind::With => self.parse_with_expr(token.span),
+            TokenKind::Io => {
                 Err(ParseError::new("expected expression, found reserved keyword", token.span))
             }
             _ => Err(ParseError::new(
@@ -96,6 +98,100 @@ impl Parser {
             param_span,
             body: Box::new(body),
             span: covering(&fn_span, &end.span),
+        })
+    }
+
+    fn parse_match_expr(&mut self, match_span: miette::SourceSpan) -> Result<Expr, ParseError> {
+        let subject = self.parse_expr()?;
+        self.expect(TokenKind::Do, "`do` after match subject")?;
+        let mut arms = Vec::new();
+        while !self.matches(&TokenKind::End) && !self.is_eof() {
+            let pattern = self.parse_pattern()?;
+            self.expect(TokenKind::Arrow, "'->' after match pattern")?;
+            let body = self.parse_expr()?;
+            let span = covering(&pattern.span(), &body.span());
+            arms.push(MatchArm { pattern, body, span });
+        }
+        if arms.is_empty() {
+            return Err(ParseError::new(
+                "match expression must have at least one arm",
+                self.peek().span.clone(),
+            ));
+        }
+        let end = self.expect(TokenKind::End, "`end` to close match")?;
+        Ok(Expr::Match {
+            subject: Box::new(subject),
+            arms,
+            span: covering(&match_span, &end.span),
+        })
+    }
+
+    fn parse_pattern(&mut self) -> Result<Pattern, ParseError> {
+        let token = self.bump();
+        match token.kind {
+            TokenKind::Int(v) => Ok(Pattern::Int(v, token.span)),
+            TokenKind::String(v) => Ok(Pattern::String(v, token.span)),
+            TokenKind::Ident(ref name) if name == "_" => Ok(Pattern::Wildcard(token.span)),
+            TokenKind::Ident(name) => Ok(Pattern::Var(name, token.span)),
+            TokenKind::LBracket => self.parse_list_pattern(token.span),
+            _ => Err(ParseError::new(
+                format!("expected pattern, found {}", token_label(&token.kind)),
+                token.span,
+            )),
+        }
+    }
+
+    fn parse_list_pattern(&mut self, start_span: miette::SourceSpan) -> Result<Pattern, ParseError> {
+        let mut items = Vec::new();
+        if self.matches(&TokenKind::RBracket) {
+            let end = self.bump();
+            return Ok(Pattern::List(items, covering(&start_span, &end.span)));
+        }
+        loop {
+            items.push(self.parse_pattern()?);
+            if self.matches(&TokenKind::Comma) {
+                self.bump();
+                continue;
+            }
+            let end = self.expect(TokenKind::RBracket, "']' to close list pattern")?;
+            return Ok(Pattern::List(items, covering(&start_span, &end.span)));
+        }
+    }
+
+    fn parse_with_expr(&mut self, with_span: miette::SourceSpan) -> Result<Expr, ParseError> {
+        let mut bindings = Vec::new();
+        loop {
+            let pattern = self.parse_pattern()?;
+            self.expect(TokenKind::LeftArrow, "'<-' after with pattern")?;
+            let expr = self.parse_expr()?;
+            let span = covering(&pattern.span(), &expr.span());
+            bindings.push(WithBinding { pattern, expr, span });
+            if self.matches(&TokenKind::Comma) {
+                self.bump();
+                continue;
+            }
+            break;
+        }
+        if bindings.is_empty() {
+            return Err(ParseError::new(
+                "with expression must have at least one binding",
+                self.peek().span.clone(),
+            ));
+        }
+        self.expect(TokenKind::Do, "`do` after with bindings")?;
+        let body = self.parse_expr()?;
+        let else_kw = self.peek().clone();
+        if !matches!(else_kw.kind, TokenKind::Ident(ref s) if s == "else") {
+            return Err(self.expected_error("`else` clause in with expression"));
+        }
+        self.bump();
+        let else_body = self.parse_expr()?;
+        let end = self.expect(TokenKind::End, "`end` to close with expression")?;
+        Ok(Expr::With {
+            bindings,
+            body: Box::new(body),
+            else_body: Box::new(else_body),
+            span: covering(&with_span, &end.span),
         })
     }
 

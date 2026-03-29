@@ -18,7 +18,7 @@
 - `glob(...)` を明示 API として実装
 - 手書きパーサ雛形（`token` / `lexer` / `parser`）を追加
   - `let` / `let mut` と `let name = expr` のパース
-  - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end`
+  - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end` / `match expr do pat -> expr ... end` / `with pat <- expr, ... do body else fallback end`
   - `|>` は左結合でパースし、`Expr::Pipe` として AST 化
   - 評価器（`eval`）: リテラル・`let` 束縛・リスト・`fn`。`|>` は右辺識別子を関数として適用（`identity` / `id` は組み込み）
 - REPL でパース → `Resolver` → `eval` の順（成功時は `name = value` を表示）
@@ -46,7 +46,7 @@ cargo run
 ```
 
 ## 直近タスク
-- T06 以降: `match` / `with` / `io` など制御構文の MVP
+- T08: `io do ... end` 境界制御
 - 関数呼び出し構文（`f(x)`）と `|>` 右辺式の一般化
 
 ## 設計ドキュメント

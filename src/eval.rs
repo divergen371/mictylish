@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use crate::ast::{Expr, Program, Stmt};
+use crate::ast::{Expr, Pattern, Program, Stmt};
 use crate::error::{
-    EvalError, EvalInvalidPipeRhsError, EvalPipeNotCallableError, EvalUnboundError,
+    EvalError, EvalInvalidPipeRhsError, EvalMatchExhaustedError, EvalPipeNotCallableError,
+    EvalUnboundError,
 };
 use crate::value::{UserFunction, Value};
 
@@ -36,6 +37,39 @@ pub fn eval_expr(env: &EvalEnv, expr: &Expr) -> Result<Value, EvalError> {
             }
             Ok(Value::List(out))
         }
+        Expr::Match {
+            subject,
+            arms,
+            span,
+        } => {
+            let val = eval_expr(env, subject)?;
+            for arm in arms {
+                if let Some(bindings) = try_match(&arm.pattern, &val) {
+                    let mut local = env.clone();
+                    local.extend(bindings);
+                    return eval_expr(&local, &arm.body);
+                }
+            }
+            Err(EvalMatchExhaustedError { span: *span }.into())
+        }
+        Expr::With {
+            bindings,
+            body,
+            else_body,
+            ..
+        } => {
+            let mut local = env.clone();
+            for wb in bindings {
+                let val = eval_expr(&local, &wb.expr)?;
+                match try_match(&wb.pattern, &val) {
+                    Some(new_bindings) => {
+                        local.extend(new_bindings);
+                    }
+                    None => return eval_expr(env, else_body),
+                }
+            }
+            eval_expr(&local, body)
+        }
         Expr::Fn {
             param, body, ..
         } => Ok(Value::Function(UserFunction {
@@ -68,6 +102,31 @@ pub fn eval_expr(env: &EvalEnv, expr: &Expr) -> Result<Value, EvalError> {
                 _ => Err(EvalInvalidPipeRhsError { span: rhs.span() }.into()),
             }
         }
+    }
+}
+
+fn try_match(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)>> {
+    match pattern {
+        Pattern::Wildcard(_) => Some(vec![]),
+        Pattern::Int(n, _) => match value {
+            Value::Int(v) if v == n => Some(vec![]),
+            _ => None,
+        },
+        Pattern::String(s, _) => match value {
+            Value::String(v) if v == s => Some(vec![]),
+            _ => None,
+        },
+        Pattern::Var(name, _) => Some(vec![(name.clone(), value.clone())]),
+        Pattern::List(pats, _) => match value {
+            Value::List(vals) if vals.len() == pats.len() => {
+                let mut bindings = Vec::new();
+                for (pat, val) in pats.iter().zip(vals.iter()) {
+                    bindings.extend(try_match(pat, val)?);
+                }
+                Some(bindings)
+            }
+            _ => None,
+        },
     }
 }
 

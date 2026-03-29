@@ -87,6 +87,14 @@ pub struct EvalInvalidPipeRhsError {
 }
 
 #[derive(Debug, Error, Diagnostic)]
+#[error("no matching arm found")]
+#[diagnostic(code(mictylish::eval_match_exhausted))]
+pub struct EvalMatchExhaustedError {
+    #[label("this value was not matched")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
 pub enum EvalError {
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -97,4 +105,7 @@ pub enum EvalError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidPipeRhs(#[from] EvalInvalidPipeRhsError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    MatchExhausted(#[from] EvalMatchExhaustedError),
 }
