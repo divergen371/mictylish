@@ -73,14 +73,15 @@ impl Parser {
         match token.kind {
             TokenKind::Int(v) => Ok(Expr::Int(v, token.span)),
             TokenKind::String(v) => Ok(Expr::String(v, token.span)),
+            TokenKind::Ident(name) if self.matches(&TokenKind::LParen) => {
+                self.parse_call_expr(name, token.span)
+            }
             TokenKind::Ident(name) => Ok(Expr::Var(name, token.span)),
             TokenKind::LBracket => self.parse_list(token.span),
             TokenKind::Fn => self.parse_fn_expr(token.span),
             TokenKind::Match => self.parse_match_expr(token.span),
             TokenKind::With => self.parse_with_expr(token.span),
-            TokenKind::Io => {
-                Err(ParseError::new("expected expression, found reserved keyword", token.span))
-            }
+            TokenKind::Io => self.parse_io_expr(token.span),
             _ => Err(ParseError::new(
                 format!("expected expression, found {}", token_label(&token.kind)),
                 token.span,
@@ -192,6 +193,42 @@ impl Parser {
             body: Box::new(body),
             else_body: Box::new(else_body),
             span: covering(&with_span, &end.span),
+        })
+    }
+
+    fn parse_io_expr(&mut self, io_span: miette::SourceSpan) -> Result<Expr, ParseError> {
+        self.expect(TokenKind::Do, "`do` after `io`")?;
+        let body = self.parse_expr()?;
+        let end = self.expect(TokenKind::End, "`end` to close io block")?;
+        Ok(Expr::Io {
+            body: Box::new(body),
+            span: covering(&io_span, &end.span),
+        })
+    }
+
+    fn parse_call_expr(
+        &mut self,
+        name: String,
+        name_span: miette::SourceSpan,
+    ) -> Result<Expr, ParseError> {
+        self.bump(); // consume LParen
+        let mut args = Vec::new();
+        if !self.matches(&TokenKind::RParen) {
+            loop {
+                args.push(self.parse_expr()?);
+                if self.matches(&TokenKind::Comma) {
+                    self.bump();
+                    continue;
+                }
+                break;
+            }
+        }
+        let end = self.expect(TokenKind::RParen, "')' to close function call")?;
+        Ok(Expr::Call {
+            name,
+            name_span,
+            args,
+            span: covering(&name_span, &end.span),
         })
     }
 

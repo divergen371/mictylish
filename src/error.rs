@@ -95,6 +95,50 @@ pub struct EvalMatchExhaustedError {
 }
 
 #[derive(Debug, Error, Diagnostic)]
+#[error("side-effect function '{name}' can only be called inside `io do ... end`")]
+#[diagnostic(
+    code(mictylish::eval_io_required),
+    help("wrap the call in `io do ... end` to allow side effects")
+)]
+pub struct EvalIoRequiredError {
+    pub name: String,
+    #[label("called here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("unknown built-in function '{name}'")]
+#[diagnostic(code(mictylish::eval_unknown_builtin))]
+pub struct EvalUnknownBuiltinError {
+    pub name: String,
+    #[label("here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("command '{program}' failed (exit code {code})")]
+#[diagnostic(code(mictylish::eval_command_failed))]
+pub struct EvalCommandFailedError {
+    pub program: String,
+    pub code: i32,
+    pub stderr: String,
+    #[label("invoked here")]
+    pub span: SourceSpan,
+    #[help]
+    pub help_text: Option<String>,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("command '{program}' could not be started: {reason}")]
+#[diagnostic(code(mictylish::eval_command_io))]
+pub struct EvalCommandIoError {
+    pub program: String,
+    pub reason: String,
+    #[label("invoked here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic)]
 pub enum EvalError {
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -108,4 +152,16 @@ pub enum EvalError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     MatchExhausted(#[from] EvalMatchExhaustedError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    IoRequired(#[from] EvalIoRequiredError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnknownBuiltin(#[from] EvalUnknownBuiltinError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    CommandFailed(#[from] EvalCommandFailedError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    CommandIo(#[from] EvalCommandIoError),
 }

@@ -67,6 +67,18 @@ pub enum Expr {
         arms: Vec<MatchArm>,
         span: Span,
     },
+    /// `io do expr end` — side-effect boundary
+    Io {
+        body: Box<Expr>,
+        span: Span,
+    },
+    /// Built-in function call: `name(arg1, arg2, ...)`
+    Call {
+        name: String,
+        name_span: Span,
+        args: Vec<Expr>,
+        span: Span,
+    },
     /// `with pat <- expr, ... do body else fallback end`
     With {
         bindings: Vec<WithBinding>,
@@ -94,6 +106,8 @@ impl Expr {
             Expr::List(_, s) => s.clone(),
             Expr::Fn { span, .. } => *span,
             Expr::Match { span, .. } => *span,
+            Expr::Io { span, .. } => *span,
+            Expr::Call { span, .. } => *span,
             Expr::With { span, .. } => *span,
             Expr::Pipe(_, _, s) => s.clone(),
         }

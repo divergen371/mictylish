@@ -115,6 +115,13 @@ impl Resolver {
                 body,
                 ..
             } => self.check_fn_expr(param, *param_span, body),
+            Expr::Io { body, .. } => self.check_expr(body),
+            Expr::Call { args, .. } => {
+                for arg in args {
+                    self.check_expr(arg)?;
+                }
+                Ok(())
+            }
             Expr::Match { subject, arms, .. } => {
                 self.check_expr(subject)?;
                 for arm in arms {

@@ -20,7 +20,9 @@
   - `let` / `let mut` と `let name = expr` のパース
   - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end` / `match expr do pat -> expr ... end` / `with pat <- expr, ... do body else fallback end`
   - `|>` は左結合でパースし、`Expr::Pipe` として AST 化
-  - 評価器（`eval`）: リテラル・`let` 束縛・リスト・`fn`。`|>` は右辺識別子を関数として適用（`identity` / `id` は組み込み）
+  - `io do expr end` による副作用境界制御
+  - `run_text(prog, args...)` — `io` 内でのみ外部コマンド実行（失敗は構造化エラー）
+  - 評価器（`eval`）: リテラル・`let` 束縛・リスト・`fn`・`match`・`with`・`io`・`|>`
 - REPL でパース → `Resolver` → `eval` の順（成功時は `name = value` を表示）
 
 ## プロジェクト構成
@@ -46,8 +48,9 @@ cargo run
 ```
 
 ## 直近タスク
-- T08: `io do ... end` 境界制御
-- 関数呼び出し構文（`f(x)`）と `|>` 右辺式の一般化
+- `set` 文（`let mut` → `set` で値を更新）
+- `when` ガード（match アーム条件）
+- Stream ベースの `map` / `where` / `each`
 
 ## 設計ドキュメント
 - `docs/要件定義書.md`
