@@ -227,6 +227,7 @@ impl Resolver {
 
     fn resolve_stmt(&mut self, stmt: &Stmt) -> Result<(), ResolveError> {
         match stmt {
+            Stmt::Expr(expr) => self.check_expr(expr),
             Stmt::Let {
                 name,
                 name_span,

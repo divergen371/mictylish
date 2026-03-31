@@ -33,7 +33,7 @@ impl Parser {
         match self.peek_kind() {
             TokenKind::Let => self.parse_let_stmt(),
             TokenKind::Set => self.parse_set_stmt(),
-            _ => Err(self.expected_error("statement")),
+            _ => Ok(Stmt::Expr(self.parse_expr()?)),
         }
     }
 
