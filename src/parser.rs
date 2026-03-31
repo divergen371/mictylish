@@ -1,4 +1,4 @@
-use crate::ast::{Expr, MatchArm, Pattern, Program, Stmt, WithBinding};
+use crate::ast::{BinOp, Expr, MatchArm, Pattern, Program, Stmt, WithBinding};
 use crate::error::ParseError;
 use crate::lexer::lex;
 use crate::span::covering;
@@ -73,14 +73,36 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
-        let mut lhs = self.parse_primary()?;
+        let mut lhs = self.parse_comparison()?;
         while self.matches(&TokenKind::PipeGreater) {
             self.bump();
-            let rhs = self.parse_primary()?;
+            let rhs = self.parse_comparison()?;
             let span = covering(&lhs.span(), &rhs.span());
             lhs = Expr::Pipe(Box::new(lhs), Box::new(rhs), span);
         }
         Ok(lhs)
+    }
+
+    fn parse_comparison(&mut self) -> Result<Expr, ParseError> {
+        let lhs = self.parse_primary()?;
+        let op = match self.peek_kind() {
+            TokenKind::EqualEqual => Some(BinOp::Eq),
+            TokenKind::NotEqual => Some(BinOp::NotEq),
+            _ => None,
+        };
+        if let Some(op) = op {
+            self.bump();
+            let rhs = self.parse_primary()?;
+            let span = covering(&lhs.span(), &rhs.span());
+            Ok(Expr::BinOp {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+                span,
+            })
+        } else {
+            Ok(lhs)
+        }
     }
 
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
@@ -123,10 +145,21 @@ impl Parser {
         let mut arms = Vec::new();
         while !self.matches(&TokenKind::End) && !self.is_eof() {
             let pattern = self.parse_pattern()?;
+            let guard = if self.matches(&TokenKind::When) {
+                self.bump();
+                Some(self.parse_expr()?)
+            } else {
+                None
+            };
             self.expect(TokenKind::Arrow, "'->' after match pattern")?;
             let body = self.parse_expr()?;
             let span = covering(&pattern.span(), &body.span());
-            arms.push(MatchArm { pattern, body, span });
+            arms.push(MatchArm {
+                pattern,
+                guard,
+                body,
+                span,
+            });
         }
         if arms.is_empty() {
             return Err(ParseError::new(
@@ -337,6 +370,8 @@ fn token_label(kind: &TokenKind) -> &'static str {
         TokenKind::Arrow => "`->`",
         TokenKind::LeftArrow => "`<-`",
         TokenKind::Equal => "`=`",
+        TokenKind::EqualEqual => "`==`",
+        TokenKind::NotEqual => "`!=`",
         TokenKind::Comma => "`,`",
         TokenKind::LParen => "`(`",
         TokenKind::RParen => "`)`",

@@ -148,6 +148,11 @@ impl Resolver {
                 }
                 Ok(())
             }
+            Expr::BinOp { lhs, rhs, .. } => {
+                self.check_expr(lhs)?;
+                self.check_expr(rhs)?;
+                Ok(())
+            }
             Expr::Match { subject, arms, .. } => {
                 self.check_expr(subject)?;
                 for arm in arms {
@@ -173,6 +178,9 @@ impl Resolver {
         self.push_scope();
         let result = (|| -> Result<(), ResolveError> {
             self.define_pattern_bindings(&arm.pattern)?;
+            if let Some(guard) = &arm.guard {
+                self.check_expr(guard)?;
+            }
             self.check_expr(&arm.body)?;
             Ok(())
         })();

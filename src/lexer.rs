@@ -57,7 +57,17 @@ impl<'a> Lexer<'a> {
                 }
                 '=' => {
                     self.chars.next();
-                    tokens.push(Token::new(TokenKind::Equal, span(idx, 1)));
+                    if self.chars.peek().is_some_and(|&(_, c)| c == '=') {
+                        self.chars.next();
+                        tokens.push(Token::new(TokenKind::EqualEqual, span(idx, 2)));
+                    } else {
+                        tokens.push(Token::new(TokenKind::Equal, span(idx, 1)));
+                    }
+                }
+                '!' => {
+                    self.chars.next();
+                    self.expect_char('=', idx, "expected '=' after '!'")?;
+                    tokens.push(Token::new(TokenKind::NotEqual, span(idx, 2)));
                 }
                 ',' => {
                     self.chars.next();

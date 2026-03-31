@@ -50,8 +50,15 @@ impl Pattern {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BinOp {
+    Eq,
+    NotEq,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: Pattern,
+    pub guard: Option<Expr>,
     pub body: Expr,
     pub span: Span,
 }
@@ -92,6 +99,12 @@ pub enum Expr {
         else_body: Box<Expr>,
         span: Span,
     },
+    BinOp {
+        op: BinOp,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+        span: Span,
+    },
     /// Left-associative pipeline: `a |> b |> c` is `((a |> b) |> c)`.
     Pipe(Box<Expr>, Box<Expr>, Span),
 }
@@ -115,6 +128,7 @@ impl Expr {
             Expr::Io { span, .. } => *span,
             Expr::Call { span, .. } => *span,
             Expr::With { span, .. } => *span,
+            Expr::BinOp { span, .. } => *span,
             Expr::Pipe(_, _, s) => s.clone(),
         }
     }

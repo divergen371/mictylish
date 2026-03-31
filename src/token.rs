@@ -31,6 +31,8 @@ pub enum TokenKind {
     Arrow,
     LeftArrow,
     Equal,
+    EqualEqual,
+    NotEqual,
     Comma,
     LParen,
     RParen,

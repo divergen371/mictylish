@@ -18,7 +18,8 @@
 - `glob(...)` を明示 API として実装
 - 手書きパーサ雛形（`token` / `lexer` / `parser`）を追加
   - `let` / `let mut` / `set` のパースと評価（不変変数への `set` は静的拒否）
-  - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end` / `match expr do pat -> expr ... end` / `with pat <- expr, ... do body else fallback end`
+  - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end` / `match expr do pat when guard -> expr ... end` / `with pat <- expr, ... do body else fallback end`
+  - 比較演算子: `==` / `!=`（`Bool` を返す）
   - `|>` は左結合でパースし、`Expr::Pipe` として AST 化
   - `io do expr end` による副作用境界制御
   - `run_text(prog, args...)` — `io` 内でのみ外部コマンド実行（失敗は構造化エラー）
@@ -48,7 +49,6 @@ cargo run
 ```
 
 ## 直近タスク
-- `when` ガード（match アーム条件）
 - 言語内 `Result`（Ok/Err）型
 - Stream ベースの `map` / `where` / `each`
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{Expr, Pattern, Program, Stmt};
+use crate::ast::{BinOp, Expr, Pattern, Program, Stmt};
 use crate::command::CommandSpec;
 use crate::error::{
     EvalCommandFailedError, EvalCommandIoError, EvalError, EvalInvalidPipeRhsError,
@@ -69,6 +69,15 @@ fn eval_inner(env: &EvalEnv, expr: &Expr, in_io: bool) -> Result<Value, EvalErro
             }
             eval_builtin_call(env, name, name_span, args, *span, in_io)
         }
+        Expr::BinOp { op, lhs, rhs, .. } => {
+            let l = eval_inner(env, lhs, in_io)?;
+            let r = eval_inner(env, rhs, in_io)?;
+            let result = match op {
+                BinOp::Eq => l == r,
+                BinOp::NotEq => l != r,
+            };
+            Ok(Value::Bool(result))
+        }
         Expr::Match {
             subject,
             arms,
@@ -79,6 +88,12 @@ fn eval_inner(env: &EvalEnv, expr: &Expr, in_io: bool) -> Result<Value, EvalErro
                 if let Some(bindings) = try_match(&arm.pattern, &val) {
                     let mut local = env.clone();
                     local.extend(bindings);
+                    if let Some(guard) = &arm.guard {
+                        let cond = eval_inner(&local, guard, in_io)?;
+                        if !is_truthy(&cond) {
+                            continue;
+                        }
+                    }
                     return eval_inner(&local, &arm.body, in_io);
                 }
             }
@@ -206,6 +221,17 @@ fn eval_builtin_call(
             span: *name_span,
         }
         .into()),
+    }
+}
+
+fn is_truthy(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Bool(b) => *b,
+        Value::Int(n) => *n != 0,
+        Value::String(s) => !s.is_empty(),
+        Value::List(items) => !items.is_empty(),
+        _ => true,
     }
 }
 
