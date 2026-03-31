@@ -32,6 +32,7 @@ impl Parser {
     fn parse_stmt(&mut self) -> Result<Stmt, ParseError> {
         match self.peek_kind() {
             TokenKind::Let => self.parse_let_stmt(),
+            TokenKind::Set => self.parse_set_stmt(),
             _ => Err(self.expected_error("statement")),
         }
     }
@@ -52,6 +53,20 @@ impl Parser {
             name,
             name_span,
             mutable,
+            expr,
+            span,
+        })
+    }
+
+    fn parse_set_stmt(&mut self) -> Result<Stmt, ParseError> {
+        let set_token = self.bump();
+        let (name, name_span) = self.expect_ident()?;
+        self.expect(TokenKind::Equal, "'=' after set binding")?;
+        let expr = self.parse_expr()?;
+        let span = covering(&set_token.span, &expr.span());
+        Ok(Stmt::Set {
+            name,
+            name_span,
             expr,
             span,
         })

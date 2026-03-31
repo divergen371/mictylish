@@ -20,6 +20,12 @@ pub enum Stmt {
         expr: Expr,
         span: Span,
     },
+    Set {
+        name: String,
+        name_span: Span,
+        expr: Expr,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -117,7 +123,7 @@ impl Expr {
 impl Stmt {
     pub fn span(&self) -> Span {
         match self {
-            Stmt::Let { span, .. } => span.clone(),
+            Stmt::Let { span, .. } | Stmt::Set { span, .. } => span.clone(),
         }
     }
 }

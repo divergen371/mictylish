@@ -98,8 +98,8 @@ fn pipe_to_bound_non_callable_name_fails_eval() {
 #[test]
 fn eval_fails_when_var_unbound() {
     let program = parse_program("let x = y").unwrap();
-    let expr = match &program.stmts[0] {
-        Stmt::Let { expr, .. } => expr,
+    let Stmt::Let { expr, .. } = &program.stmts[0] else {
+        panic!("expected Let");
     };
     let env = EvalEnv::new();
     assert!(eval_expr(&env, expr).is_err());

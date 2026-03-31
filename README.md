@@ -17,7 +17,7 @@
 - 安全な外部コマンド実行モデル（program + args）を実装
 - `glob(...)` を明示 API として実装
 - 手書きパーサ雛形（`token` / `lexer` / `parser`）を追加
-  - `let` / `let mut` と `let name = expr` のパース
+  - `let` / `let mut` / `set` のパースと評価（不変変数への `set` は静的拒否）
   - 基本式: `int` / `string` / `ident` / `list` / `fn x -> expr end` / `match expr do pat -> expr ... end` / `with pat <- expr, ... do body else fallback end`
   - `|>` は左結合でパースし、`Expr::Pipe` として AST 化
   - `io do expr end` による副作用境界制御
@@ -48,8 +48,8 @@ cargo run
 ```
 
 ## 直近タスク
-- `set` 文（`let mut` → `set` で値を更新）
 - `when` ガード（match アーム条件）
+- 言語内 `Result`（Ok/Err）型
 - Stream ベースの `map` / `where` / `each`
 
 ## 設計ドキュメント

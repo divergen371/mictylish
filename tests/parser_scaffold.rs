@@ -36,6 +36,7 @@ fn parses_single_let_statement() {
             assert!(matches!(expr, Expr::Int(42, _)));
             assert_eq!(stmt_span, &span(0, "let answer = 42".len()));
         }
+        _ => panic!("expected Let"),
     }
 }
 
@@ -64,6 +65,7 @@ fn parses_mutable_let_with_precise_spans() {
                 other => panic!("expected list expression, got {other:?}"),
             }
         }
+        _ => panic!("expected Let"),
     }
 }
 
@@ -101,6 +103,7 @@ fn parses_simple_pipe_in_let() {
             }
             other => panic!("expected Pipe, got {other:?}"),
         },
+        _ => panic!("expected Let"),
     }
 }
 
@@ -122,6 +125,7 @@ fn pipe_is_left_associative() {
             }
             other => panic!("expected Pipe, got {other:?}"),
         },
+        _ => panic!("expected Let"),
     }
 }
 
@@ -144,6 +148,7 @@ fn pipe_inside_list_item_binds_before_comma() {
             }
             other => panic!("expected List, got {other:?}"),
         },
+        _ => panic!("expected Let"),
     }
 }
 
@@ -179,6 +184,7 @@ fn parses_fn_expression_in_let() {
                 other => panic!("expected Fn, got {other:?}"),
             }
         }
+        _ => panic!("expected Let"),
     }
 }
 

@@ -1,12 +1,21 @@
 use std::collections::HashMap;
 
 use crate::ast::{Expr, MatchArm, Pattern, Program, Stmt, WithBinding};
-use crate::error::{InvalidPipeRhsError, NameError, ResolveError, UndefinedNameError};
+use crate::error::{
+    InvalidPipeRhsError, NameError, ResolveError, SetNotMutableError, SetUndefinedError,
+    UndefinedNameError,
+};
 use crate::span::Span;
+
+#[derive(Debug, Clone)]
+struct Binding {
+    span: Span,
+    mutable: bool,
+}
 
 #[derive(Debug, Default)]
 pub struct Resolver {
-    scopes: Vec<HashMap<String, Span>>,
+    scopes: Vec<HashMap<String, Binding>>,
 }
 
 impl Resolver {
@@ -27,6 +36,19 @@ impl Resolver {
     }
 
     pub fn define(&mut self, name: impl Into<String>, span: Span) -> Result<(), NameError> {
+        self.define_with_mutability(name, span, false)
+    }
+
+    pub fn define_mut(&mut self, name: impl Into<String>, span: Span) -> Result<(), NameError> {
+        self.define_with_mutability(name, span, true)
+    }
+
+    fn define_with_mutability(
+        &mut self,
+        name: impl Into<String>,
+        span: Span,
+        mutable: bool,
+    ) -> Result<(), NameError> {
         let name = name.into();
         if let Some(first) = self
             .scopes
@@ -36,18 +58,22 @@ impl Resolver {
         {
             return Err(NameError {
                 name,
-                first: first.clone(),
+                first: first.span,
                 second: span,
             });
         }
         if let Some(current) = self.scopes.last_mut() {
-            current.insert(name, span);
+            current.insert(name, Binding { span, mutable });
         }
         Ok(())
     }
 
     pub fn is_defined(&self, name: &str) -> bool {
         self.scopes.iter().rev().any(|scope| scope.contains_key(name))
+    }
+
+    fn lookup(&self, name: &str) -> Option<&Binding> {
+        self.scopes.iter().rev().find_map(|scope| scope.get(name))
     }
 
     fn is_pipe_prelude_target(name: &str) -> bool {
@@ -196,12 +222,38 @@ impl Resolver {
             Stmt::Let {
                 name,
                 name_span,
+                mutable,
                 expr,
                 ..
             } => {
                 self.check_expr(expr)?;
-                self.define(name.clone(), *name_span)?;
+                if *mutable {
+                    self.define_mut(name.clone(), *name_span)?;
+                } else {
+                    self.define(name.clone(), *name_span)?;
+                }
                 Ok(())
+            }
+            Stmt::Set {
+                name,
+                name_span,
+                expr,
+                ..
+            } => {
+                self.check_expr(expr)?;
+                match self.lookup(name) {
+                    Some(binding) if binding.mutable => Ok(()),
+                    Some(_) => Err(SetNotMutableError {
+                        name: name.clone(),
+                        span: *name_span,
+                    }
+                    .into()),
+                    None => Err(SetUndefinedError {
+                        name: name.clone(),
+                        span: *name_span,
+                    }
+                    .into()),
+                }
             }
         }
     }

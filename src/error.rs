@@ -47,6 +47,27 @@ pub struct InvalidPipeRhsError {
     pub span: SourceSpan,
 }
 
+#[derive(Debug, Error, Diagnostic, Clone)]
+#[error("cannot set '{name}': not declared as mutable")]
+#[diagnostic(
+    code(mictylish::set_not_mutable),
+    help("declare with `let mut {name} = ...` to allow mutation")
+)]
+pub struct SetNotMutableError {
+    pub name: String,
+    #[label("set here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, Error, Diagnostic, Clone)]
+#[error("cannot set '{name}': not defined")]
+#[diagnostic(code(mictylish::set_undefined))]
+pub struct SetUndefinedError {
+    pub name: String,
+    #[label("set here")]
+    pub span: SourceSpan,
+}
+
 #[derive(Debug, Error, Diagnostic)]
 pub enum ResolveError {
     #[error(transparent)]
@@ -58,6 +79,12 @@ pub enum ResolveError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidPipeRhs(#[from] InvalidPipeRhsError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    SetNotMutable(#[from] SetNotMutableError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    SetUndefined(#[from] SetUndefinedError),
 }
 
 #[derive(Debug, Error, Diagnostic)]

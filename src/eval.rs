@@ -246,6 +246,11 @@ pub fn eval_program(
                 env.insert(name.clone(), v.clone());
                 out.push((name.clone(), v));
             }
+            Stmt::Set { name, expr, .. } => {
+                let v = eval_expr(env, expr)?;
+                env.insert(name.clone(), v.clone());
+                out.push((name.clone(), v));
+            }
         }
     }
     Ok(out)
