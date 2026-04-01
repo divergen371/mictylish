@@ -181,6 +181,20 @@ impl Parser {
             TokenKind::Int(v) => Ok(Pattern::Int(v, token.span)),
             TokenKind::String(v) => Ok(Pattern::String(v, token.span)),
             TokenKind::Ident(ref name) if name == "_" => Ok(Pattern::Wildcard(token.span)),
+            TokenKind::Ident(ref name)
+                if (name == "Ok" || name == "Err") && self.matches(&TokenKind::LParen) =>
+            {
+                let is_ok = name == "Ok";
+                self.bump(); // consume LParen
+                let inner = self.parse_pattern()?;
+                let end = self.expect(TokenKind::RParen, "')' to close result pattern")?;
+                let span = covering(&token.span, &end.span);
+                if is_ok {
+                    Ok(Pattern::Ok(Box::new(inner), span))
+                } else {
+                    Ok(Pattern::Err(Box::new(inner), span))
+                }
+            }
             TokenKind::Ident(name) => Ok(Pattern::Var(name, token.span)),
             TokenKind::LBracket => self.parse_list_pattern(token.span),
             _ => Err(ParseError::new(

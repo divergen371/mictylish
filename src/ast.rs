@@ -36,6 +36,8 @@ pub enum Pattern {
     String(String, Span),
     Var(String, Span),
     List(Vec<Pattern>, Span),
+    Ok(Box<Pattern>, Span),
+    Err(Box<Pattern>, Span),
 }
 
 impl Pattern {
@@ -46,6 +48,8 @@ impl Pattern {
             Pattern::String(_, s) => *s,
             Pattern::Var(_, s) => *s,
             Pattern::List(_, s) => *s,
+            Pattern::Ok(_, s) => *s,
+            Pattern::Err(_, s) => *s,
         }
     }
 }

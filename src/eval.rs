@@ -20,6 +20,10 @@ fn is_io_builtin(name: &str) -> bool {
     matches!(name, "run_text")
 }
 
+fn is_pure_builtin(name: &str) -> bool {
+    matches!(name, "ok" | "err" | "is_ok" | "is_err")
+}
+
 fn apply_function(
     env: &EvalEnv,
     func: &UserFunction,
@@ -67,7 +71,15 @@ fn eval_inner(env: &EvalEnv, expr: &Expr, in_io: bool) -> Result<Value, EvalErro
                 }
                 .into());
             }
-            eval_builtin_call(env, name, name_span, args, *span, in_io)
+            if is_pure_builtin(name) || is_io_builtin(name) {
+                eval_builtin_call(env, name, name_span, args, *span, in_io)
+            } else {
+                Err(EvalUnknownBuiltinError {
+                    name: name.to_string(),
+                    span: *name_span,
+                }
+                .into())
+            }
         }
         Expr::BinOp { op, lhs, rhs, .. } => {
             let l = eval_inner(env, lhs, in_io)?;
@@ -159,6 +171,50 @@ fn eval_builtin_call(
     in_io: bool,
 ) -> Result<Value, EvalError> {
     match name {
+        "ok" => {
+            if args.len() != 1 {
+                return Err(EvalUnknownBuiltinError {
+                    name: "ok() requires exactly 1 argument".to_string(),
+                    span: call_span,
+                }
+                .into());
+            }
+            let v = eval_inner(env, &args[0], in_io)?;
+            Ok(Value::Ok(Box::new(v)))
+        }
+        "err" => {
+            if args.len() != 1 {
+                return Err(EvalUnknownBuiltinError {
+                    name: "err() requires exactly 1 argument".to_string(),
+                    span: call_span,
+                }
+                .into());
+            }
+            let v = eval_inner(env, &args[0], in_io)?;
+            Ok(Value::Err(Box::new(v)))
+        }
+        "is_ok" => {
+            if args.len() != 1 {
+                return Err(EvalUnknownBuiltinError {
+                    name: "is_ok() requires exactly 1 argument".to_string(),
+                    span: call_span,
+                }
+                .into());
+            }
+            let v = eval_inner(env, &args[0], in_io)?;
+            Ok(Value::Bool(matches!(v, Value::Ok(_))))
+        }
+        "is_err" => {
+            if args.len() != 1 {
+                return Err(EvalUnknownBuiltinError {
+                    name: "is_err() requires exactly 1 argument".to_string(),
+                    span: call_span,
+                }
+                .into());
+            }
+            let v = eval_inner(env, &args[0], in_io)?;
+            Ok(Value::Bool(matches!(v, Value::Err(_))))
+        }
         "run_text" => {
             if args.len() < 1 {
                 return Err(EvalUnknownBuiltinError {
@@ -189,31 +245,25 @@ fn eval_builtin_call(
                 Ok(output) => {
                     if output.status.success() {
                         let text = String::from_utf8_lossy(&output.stdout).to_string();
-                        Ok(Value::String(text.trim_end_matches('\n').to_string()))
+                        Ok(Value::Ok(Box::new(Value::String(
+                            text.trim_end_matches('\n').to_string(),
+                        ))))
                     } else {
                         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                         let code = output.status.code().unwrap_or(-1);
-                        let help_text = if stderr.is_empty() {
-                            None
-                        } else {
-                            Some(format!("stderr: {stderr}"))
-                        };
-                        Err(EvalCommandFailedError {
-                            program,
-                            code,
-                            stderr,
-                            span: call_span,
-                            help_text,
-                        }
-                        .into())
+                        let mut fields = std::collections::BTreeMap::new();
+                        fields.insert("program".to_string(), Value::String(program));
+                        fields.insert("code".to_string(), Value::Int(code as i64));
+                        fields.insert("stderr".to_string(), Value::String(stderr));
+                        Ok(Value::Err(Box::new(Value::Record(fields))))
                     }
                 }
-                Err(io_err) => Err(EvalCommandIoError {
-                    program,
-                    reason: io_err.to_string(),
-                    span: call_span,
+                Err(io_err) => {
+                    let mut fields = std::collections::BTreeMap::new();
+                    fields.insert("program".to_string(), Value::String(program));
+                    fields.insert("reason".to_string(), Value::String(io_err.to_string()));
+                    Ok(Value::Err(Box::new(Value::Record(fields))))
                 }
-                .into()),
             }
         }
         _ => Err(EvalUnknownBuiltinError {
@@ -247,6 +297,14 @@ fn try_match(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)>> {
             _ => None,
         },
         Pattern::Var(name, _) => Some(vec![(name.clone(), value.clone())]),
+        Pattern::Ok(inner_pat, _) => match value {
+            Value::Ok(inner_val) => try_match(inner_pat, inner_val),
+            _ => None,
+        },
+        Pattern::Err(inner_pat, _) => match value {
+            Value::Err(inner_val) => try_match(inner_pat, inner_val),
+            _ => None,
+        },
         Pattern::List(pats, _) => match value {
             Value::List(vals) if vals.len() == pats.len() => {
                 let mut bindings = Vec::new();

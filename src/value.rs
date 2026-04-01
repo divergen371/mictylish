@@ -20,6 +20,8 @@ pub enum Value {
     List(Vec<Value>),
     Record(BTreeMap<String, Value>),
     Function(UserFunction),
+    Ok(Box<Value>),
+    Err(Box<Value>),
 }
 
 impl fmt::Display for Value {
@@ -43,6 +45,8 @@ impl fmt::Display for Value {
             }
             Value::Record(_) => write!(f, "<record>"),
             Value::Function(func) => write!(f, "<fn {}>", func.param),
+            Value::Ok(v) => write!(f, "Ok({v})"),
+            Value::Err(v) => write!(f, "Err({v})"),
         }
     }
 }

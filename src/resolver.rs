@@ -201,6 +201,9 @@ impl Resolver {
                 }
                 Ok(())
             }
+            Pattern::Ok(inner, _) | Pattern::Err(inner, _) => {
+                self.define_pattern_bindings(inner)
+            }
         }
     }
 

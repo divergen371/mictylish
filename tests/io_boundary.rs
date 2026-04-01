@@ -32,7 +32,10 @@ fn io_block_returns_body_value() {
 #[test]
 fn io_block_allows_run_text() {
     let env = run(r#"let x = io do run_text("echo", "hello") end"#);
-    assert_eq!(env.get("x"), Some(&Value::String("hello".to_string())));
+    assert_eq!(
+        env.get("x"),
+        Some(&Value::Ok(Box::new(Value::String("hello".to_string()))))
+    );
 }
 
 #[test]
@@ -44,7 +47,10 @@ fn run_text_outside_io_is_rejected() {
 #[test]
 fn nested_io_blocks_allow_run_text() {
     let env = run(r#"let x = io do io do run_text("echo", "nested") end end"#);
-    assert_eq!(env.get("x"), Some(&Value::String("nested".to_string())));
+    assert_eq!(
+        env.get("x"),
+        Some(&Value::Ok(Box::new(Value::String("nested".to_string()))))
+    );
 }
 
 #[test]
@@ -52,7 +58,10 @@ fn io_propagates_through_pipe() {
     let env = run(
         r#"let trim = fn x -> x end let y = io do run_text("echo", "piped") |> trim end"#,
     );
-    assert_eq!(env.get("y"), Some(&Value::String("piped".to_string())));
+    assert_eq!(
+        env.get("y"),
+        Some(&Value::Ok(Box::new(Value::String("piped".to_string()))))
+    );
 }
 
 #[test]
@@ -60,21 +69,24 @@ fn io_propagates_into_fn_call_via_pipe() {
     let env = run(
         r#"let get = fn prog -> run_text(prog, "from_fn") end let y = io do "echo" |> get end"#,
     );
-    assert_eq!(env.get("y"), Some(&Value::String("from_fn".to_string())));
+    assert_eq!(
+        env.get("y"),
+        Some(&Value::Ok(Box::new(Value::String("from_fn".to_string()))))
+    );
 }
 
-// --- T09: run_text error formatting ---
+// --- T09: run_text now returns Result values ---
 
 #[test]
-fn run_text_command_not_found_gives_io_error() {
-    let err = run_err(r#"let x = io do run_text("__mictylish_no_such_cmd__") end"#);
-    assert!(matches!(err, EvalError::CommandIo(_)));
+fn run_text_command_not_found_returns_err_value() {
+    let env = run(r#"let x = io do run_text("__mictylish_no_such_cmd__") end"#);
+    assert!(matches!(env.get("x"), Some(Value::Err(_))));
 }
 
 #[test]
-fn run_text_nonzero_exit_gives_command_failed() {
-    let err = run_err(r#"let x = io do run_text("false") end"#);
-    assert!(matches!(err, EvalError::CommandFailed(_)));
+fn run_text_nonzero_exit_returns_err_value() {
+    let env = run(r#"let x = io do run_text("false") end"#);
+    assert!(matches!(env.get("x"), Some(Value::Err(_))));
 }
 
 #[test]
@@ -107,5 +119,28 @@ fn parse_call_with_multiple_args() {
 #[test]
 fn run_text_multiple_args_concatenated() {
     let env = run(r#"let x = io do run_text("echo", "a", "b") end"#);
-    assert_eq!(env.get("x"), Some(&Value::String("a b".to_string())));
+    assert_eq!(
+        env.get("x"),
+        Some(&Value::Ok(Box::new(Value::String("a b".to_string()))))
+    );
+}
+
+// --- with + Result pattern ---
+
+#[test]
+fn with_ok_pattern_extracts_success() {
+    let env = run(
+        r#"let result = io do run_text("echo", "hi") end
+           let msg = with Ok(s) <- result do s else "failed" end"#,
+    );
+    assert_eq!(env.get("msg"), Some(&Value::String("hi".to_string())));
+}
+
+#[test]
+fn with_ok_pattern_falls_to_else_on_err() {
+    let env = run(
+        r#"let result = io do run_text("false") end
+           let msg = with Ok(s) <- result do s else "failed" end"#,
+    );
+    assert_eq!(env.get("msg"), Some(&Value::String("failed".to_string())));
 }

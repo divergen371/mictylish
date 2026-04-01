@@ -23,7 +23,8 @@
   - `|>` は左結合でパースし、`Expr::Pipe` として AST 化
   - `io do expr end` による副作用境界制御
   - `run_text(prog, args...)` — `io` 内でのみ外部コマンド実行（失敗は構造化エラー）
-  - 評価器（`eval`）: リテラル・`let` 束縛・リスト・`fn`・`match`・`with`・`io`・`|>`
+  - 言語内 Result: `ok(v)` / `err(v)` / `is_ok()` / `is_err()` 組み込み。`Ok(pat)` / `Err(pat)` でパターンマッチ
+  - 評価器（`eval`）: リテラル・`let` 束縛・リスト・`fn`・`match`・`with`・`io`・`|>`・Result
 - REPL でパース → `Resolver` → `eval` の順（成功時は `name = value` を表示）
 
 ## プロジェクト構成
@@ -49,8 +50,9 @@ cargo run
 ```
 
 ## 直近タスク
-- 言語内 `Result`（Ok/Err）型
 - Stream ベースの `map` / `where` / `each`
+- Record リテラルとアクセス
+- JSON 変換ブリッジ
 
 ## 設計ドキュメント
 - `docs/要件定義書.md`
